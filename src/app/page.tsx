@@ -74,7 +74,7 @@ export default function Dashboard() {
         .filter((t) => t.accountId === modal.editId)
         .reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
       const newInitial = modal.type === 'debt' ? (-raw - txContrib) : (raw - txContrib);
-      updateAccount(modal.editId, { name: form.name.trim(), initialBalance: newInitial, color: form.color, emoji: form.emoji });
+      updateAccount(modal.editId, { name: form.name.trim(), type: modal.type, initialBalance: newInitial, color: form.color, emoji: form.emoji });
     } else {
       addAccount({ name: form.name.trim(), type: modal.type, initialBalance: initBal, color: form.color, emoji: form.emoji });
     }
@@ -282,9 +282,19 @@ export default function Dashboard() {
           <div className="relative w-full bg-surface rounded-t-3xl border-t border-border slide-up max-h-[88dvh] overflow-y-auto">
             <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-border" /></div>
             <div className="px-4 pb-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-xl font-bold text-white">{modalTitle}</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">{modal.editId ? 'Editar cuenta' : 'Nueva cuenta'}</h2>
                 <button onClick={() => setModal(CLOSED)} className="w-8 h-8 rounded-full bg-surface2 flex items-center justify-center text-secondary text-sm">✕</button>
+              </div>
+
+              {/* Type toggle — always visible so user can change type */}
+              <div className="flex bg-surface2 rounded-xl p-1 mb-4 border border-border">
+                {([['bank','Líquido'],['investment','Inversión'],['debt','Deuda']] as [AccountType,string][]).map(([t, label]) => (
+                  <button key={t} onClick={() => setModal((m) => ({ ...m, type: t }))}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${modal.type === t ? 'bg-primary text-white' : 'text-secondary'}`}>
+                    {label}
+                  </button>
+                ))}
               </div>
 
               <div className="mb-4">
