@@ -1,10 +1,8 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { parseNaturalLanguage } from '../utils/nlp';
 import { getExpenseCategories, getIncomeCategories, getCategoryById } from '../utils/categories';
 import { TransactionType } from '../types';
-import { getMonthKey } from '../utils/format';
 
 const QUICK = [10000, 20000, 50000, 100000, 200000, 500000];
 
@@ -13,8 +11,6 @@ interface Props { open: boolean; onClose: () => void; }
 export default function AddModal({ open, onClose }: Props) {
   const { addTransaction } = useStore();
   const [type, setType] = useState<TransactionType>('expense');
-  const [nlp, setNlp] = useState('');
-  const [nlpDone, setNlpDone] = useState(false);
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [category, setCategory] = useState('other_expense');
@@ -27,9 +23,8 @@ export default function AddModal({ open, onClose }: Props) {
   const selCat = getCategoryById(category);
 
   function reset() {
-    setType('expense'); setNlp(''); setNlpDone(false); setAmount('');
-    setDesc(''); setCategory('other_expense'); setNote('');
-    setDate(new Date().toISOString().slice(0, 10)); setRating(undefined); setError('');
+    setType('expense'); setAmount(''); setDesc(''); setCategory('other_expense');
+    setNote(''); setDate(new Date().toISOString().slice(0, 10)); setRating(undefined); setError('');
   }
 
   function handleClose() { reset(); onClose(); }
@@ -37,19 +32,6 @@ export default function AddModal({ open, onClose }: Props) {
   function handleTypeChange(t: TransactionType) {
     setType(t);
     setCategory(t === 'expense' ? 'other_expense' : 'other_income');
-    setNlpDone(false);
-  }
-
-  function handleNlp() {
-    if (!nlp.trim()) return;
-    const parsed = parseNaturalLanguage(nlp);
-    if (!parsed) { setError('No entendí. Prueba: "Gasté 45k en Rappi"'); return; }
-    setType(parsed.type);
-    setAmount(parsed.amount.toString());
-    setDesc(parsed.description);
-    setCategory(parsed.category);
-    setNlpDone(true);
-    setError('');
   }
 
   function handleSave() {
@@ -72,7 +54,6 @@ export default function AddModal({ open, onClose }: Props) {
       <div className="absolute inset-0 bg-black/70" onClick={handleClose} />
 
       <div className="relative w-full bg-surface rounded-t-3xl border-t border-border slide-up max-h-[92dvh] overflow-y-auto">
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
@@ -93,29 +74,6 @@ export default function AddModal({ open, onClose }: Props) {
               className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${type === 'income' ? 'bg-success text-white' : 'text-secondary'}`}
               onClick={() => handleTypeChange('income')}
             >↑ Ingreso</button>
-          </div>
-
-          {/* NLP */}
-          <div className="mb-4">
-            <label className="text-xs font-semibold text-secondary mb-2 block">Descripción en palabras</label>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
-                placeholder={type === 'expense' ? '"Gasté 45k en Rappi"' : '"Recibí 3 millones de nómina"'}
-                value={nlp}
-                onChange={(e) => setNlp(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleNlp()}
-              />
-              <button onClick={handleNlp} className="w-12 bg-primary rounded-xl text-white text-xl font-light flex items-center justify-center">→</button>
-            </div>
-            {nlpDone && <p className="text-xs text-success mt-1.5 font-semibold">✓ Datos detectados automáticamente</p>}
-            {error && <p className="text-xs text-primary-light mt-1.5">{error}</p>}
-          </div>
-
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted">o ingresa manualmente</span>
-            <div className="h-px flex-1 bg-border" />
           </div>
 
           {/* Quick amounts */}
@@ -152,7 +110,7 @@ export default function AddModal({ open, onClose }: Props) {
             <label className="text-xs font-semibold text-secondary mb-1.5 block">Descripción</label>
             <input
               className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
-              placeholder="Ej: Almuerzo en el trabajo"
+              placeholder="Ej: Almuerzo, gasolina, nómina..."
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
             />
@@ -219,6 +177,8 @@ export default function AddModal({ open, onClose }: Props) {
               </div>
             </div>
           )}
+
+          {error && <p className="text-xs text-primary-light mb-3">{error}</p>}
 
           {/* Preview + Save */}
           <div className="flex items-center gap-3 bg-surface2 rounded-xl p-3 mb-4 border border-border">
