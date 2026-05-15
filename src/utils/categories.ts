@@ -1,4 +1,4 @@
-import { CategoryDef } from '../types';
+import { CategoryDef, CustomCategory } from '../types';
 
 export const CATEGORIES: CategoryDef[] = [
   { id: 'food', name: 'Comida', icon: '🍔', color: '#FF6B6B', type: 'expense' },
@@ -29,6 +29,14 @@ export const CATEGORIES: CategoryDef[] = [
 export const getCategoryById = (id: string) => CATEGORIES.find((c) => c.id === id);
 export const getExpenseCategories = () => CATEGORIES.filter((c) => c.type === 'expense');
 export const getIncomeCategories = () => CATEGORIES.filter((c) => c.type === 'income');
+
+export function resolveCategory(id: string, custom: CustomCategory[]): { name: string; icon: string; color: string } {
+  const predefined = getCategoryById(id);
+  if (predefined) return { name: predefined.name, icon: predefined.icon, color: predefined.color };
+  const c = custom.find((x) => x.id === id);
+  if (c) return { name: c.name, icon: c.emoji, color: c.color };
+  return { name: id, icon: '📦', color: '#808080' };
+}
 
 const KEYWORDS: Record<string, string[]> = {
   food_delivery: ['rappi', 'domicilio', 'ifood', 'ubereats', 'uber eats', 'didi food'],
