@@ -1,4 +1,14 @@
 export type TransactionType = 'income' | 'expense';
+export type AccountType = 'bank' | 'debt';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  balance: number;
+  color: string;
+  emoji: string;
+}
 
 export interface Transaction {
   id: string;
@@ -23,6 +33,7 @@ export interface UserProfile {
   monthlyIncomeGoal: number;
   currency: string;
   openAiKey?: string;
+  budgetResetDay: number;
 }
 
 export interface CategoryDef {

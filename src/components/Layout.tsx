@@ -8,8 +8,8 @@ const TABS = [
   { href: '/', icon: '⌂', label: 'Inicio' },
   { href: '/transactions', icon: '≡', label: 'Movimientos' },
   { href: null, icon: '+', label: '' }, // FAB placeholder
-  { href: '/subscriptions', icon: '⟳', label: 'Recurrentes' },
   { href: '/budget', icon: '◑', label: 'Presupuesto' },
+  { href: '/settings', icon: '◉', label: 'Perfil' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

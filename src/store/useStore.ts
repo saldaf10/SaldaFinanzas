@@ -1,7 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Transaction, Budget, UserProfile, Subscription, Receivable } from '../types';
+import { Transaction, Budget, UserProfile, Subscription, Receivable, Account } from '../types';
 
 interface Store {
   transactions: Transaction[];
@@ -9,6 +9,7 @@ interface Store {
   profile: UserProfile;
   subscriptions: Subscription[];
   receivables: Receivable[];
+  accounts: Account[];
   addTransaction: (t: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
@@ -23,6 +24,9 @@ interface Store {
   markReceivablePaid: (id: string) => void;
   deleteReceivable: (id: string) => void;
   applyMonthlySubscriptions: () => void;
+  addAccount: (a: Omit<Account, 'id'>) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => void;
+  deleteAccount: (id: string) => void;
 }
 
 
@@ -40,9 +44,10 @@ export const useStore = create<Store>()(
     (set, get) => ({
       transactions: [],
       budgets: [],
-      profile: { name: 'saldaf', monthlyIncomeGoal: 0, currency: 'COP' },
+      profile: { name: 'saldaf', monthlyIncomeGoal: 0, currency: 'COP', budgetResetDay: 5 },
       subscriptions: [],
       receivables: [],
+      accounts: [],
 
       addTransaction: (t) => {
         const id = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -118,6 +123,15 @@ export const useStore = create<Store>()(
         if (newTxs.length > 0)
           set((s) => ({ transactions: [...newTxs, ...s.transactions] }));
       },
+
+      addAccount: (a) => {
+        const id = `acc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set((s) => ({ accounts: [...s.accounts, { ...a, id }] }));
+      },
+      updateAccount: (id, updates) =>
+        set((s) => ({ accounts: s.accounts.map((a) => a.id === id ? { ...a, ...updates } : a) })),
+      deleteAccount: (id) =>
+        set((s) => ({ accounts: s.accounts.filter((a) => a.id !== id) })),
     }),
     {
       name: 'finance-v2',

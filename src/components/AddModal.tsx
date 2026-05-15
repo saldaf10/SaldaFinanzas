@@ -3,13 +3,15 @@ import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { getExpenseCategories, getIncomeCategories, getCategoryById } from '../utils/categories';
 import { TransactionType } from '../types';
+import { formatCOP } from '../utils/format';
 
 const QUICK = [10000, 20000, 50000, 100000, 200000, 500000];
 
 interface Props { open: boolean; onClose: () => void; }
 
 export default function AddModal({ open, onClose }: Props) {
-  const { addTransaction } = useStore();
+  const { addTransaction, subscriptions } = useStore();
+  const activeSubs = subscriptions.filter((s) => s.active);
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
@@ -75,6 +77,32 @@ export default function AddModal({ open, onClose }: Props) {
               onClick={() => handleTypeChange('income')}
             >↑ Ingreso</button>
           </div>
+
+          {/* Subscription quick picks */}
+          {type === 'expense' && activeSubs.length > 0 && (
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-secondary mb-2 block">Suscripciones</label>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {activeSubs.map((sub) => {
+                  const cat = getCategoryById(sub.category);
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => { setDesc(sub.name); setAmount(sub.amount.toString()); setCategory(sub.category); }}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all"
+                      style={desc === sub.name
+                        ? { backgroundColor: '#DC262622', borderColor: '#DC2626', color: '#fff' }
+                        : { backgroundColor: '#1a1a1a', borderColor: '#2a2a2a', color: '#888' }}
+                    >
+                      <span>{cat?.icon || '📱'}</span>
+                      <span>{sub.name}</span>
+                      <span className="text-[10px] opacity-70">{formatCOP(sub.amount)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Quick amounts */}
           <div className="mb-4">

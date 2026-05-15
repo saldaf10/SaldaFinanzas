@@ -11,11 +11,13 @@ export default function Settings() {
   const [name, setName] = useState(profile.name);
   const [income, setIncome] = useState(profile.monthlyIncomeGoal.toString());
   const [apiKey, setApiKey] = useState(profile.openAiKey || '');
+  const [resetDay, setResetDay] = useState((profile.budgetResetDay ?? 5).toString());
   const [saved, setSaved] = useState(false);
 
   function handleSave() {
     const amt = parseFloat(income.replace(/\./g, ''));
-    updateProfile({ name: name.trim() || profile.name, monthlyIncomeGoal: amt || profile.monthlyIncomeGoal, openAiKey: apiKey.trim() || undefined });
+    const day = Math.min(28, Math.max(1, parseInt(resetDay) || 5));
+    updateProfile({ name: name.trim() || profile.name, monthlyIncomeGoal: amt || profile.monthlyIncomeGoal, openAiKey: apiKey.trim() || undefined, budgetResetDay: day });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -76,6 +78,17 @@ export default function Settings() {
               value={income}
               onChange={(e) => setIncome(e.target.value)}
               placeholder="Ej: 5000000"
+              inputMode="numeric"
+            />
+          </div>
+          <div>
+            <label className="text-secondary text-xs font-semibold block mb-1.5">Día de corte del presupuesto</label>
+            <p className="text-muted text-xs mb-1.5">El día del mes en que empieza tu nuevo período (1–28)</p>
+            <input
+              className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
+              value={resetDay}
+              onChange={(e) => setResetDay(e.target.value)}
+              placeholder="5"
               inputMode="numeric"
             />
           </div>
