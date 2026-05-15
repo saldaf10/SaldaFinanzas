@@ -26,6 +26,10 @@ export default function Settings() {
   const [apiKey, setApiKey]   = useState(profile.openAiKey || '');
   const [resetDay, setResetDay] = useState((profile.budgetResetDay ?? 5).toString());
   const [saved, setSaved]     = useState(false);
+  const [curPass, setCurPass]     = useState('');
+  const [newPass, setNewPass]     = useState('');
+  const [confPass, setConfPass]   = useState('');
+  const [passMsg, setPassMsg]     = useState('');
 
   function handleSave() {
     const amt = parseFloat(income.replace(/\./g, ''));
@@ -63,6 +67,17 @@ export default function Settings() {
     star,
     count: ratedTxs.filter((t) => t.rating === star).length,
   }));
+
+  function handleChangePassword() {
+    const stored = localStorage.getItem('finance_password') || 'Behetria1!';
+    if (curPass !== stored) { setPassMsg('Contraseña actual incorrecta'); return; }
+    if (newPass.length < 6) { setPassMsg('Mínimo 6 caracteres'); return; }
+    if (newPass !== confPass) { setPassMsg('Las contraseñas no coinciden'); return; }
+    localStorage.setItem('finance_password', newPass);
+    setCurPass(''); setNewPass(''); setConfPass('');
+    setPassMsg('✓ Contraseña actualizada');
+    setTimeout(() => setPassMsg(''), 3000);
+  }
 
   const starsByCategory = useMemo(() => {
     const m: Record<string, { total: number; count: number; amount: number }> = {};
@@ -309,6 +324,35 @@ export default function Settings() {
           <li>4. Toca <strong className="text-white">Agregar</strong></li>
           <li>5. ¡Ya aparece en tu pantalla de inicio! 🎉</li>
         </ol>
+      </div>
+
+      {/* Password change */}
+      <div className="px-4 mb-3">
+        <p className="text-white text-sm font-bold mb-3">Seguridad</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-secondary text-xs font-semibold block mb-1.5">Contraseña actual</label>
+            <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
+              type="password" value={curPass} onChange={(e) => setCurPass(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div>
+            <label className="text-secondary text-xs font-semibold block mb-1.5">Nueva contraseña</label>
+            <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
+              type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Mínimo 6 caracteres" />
+          </div>
+          <div>
+            <label className="text-secondary text-xs font-semibold block mb-1.5">Confirmar contraseña</label>
+            <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
+              type="password" value={confPass} onChange={(e) => setConfPass(e.target.value)} placeholder="Repite la nueva contraseña" />
+          </div>
+          {passMsg && (
+            <p className={`text-xs font-semibold text-center ${passMsg.startsWith('✓') ? 'text-success' : 'text-primary'}`}>{passMsg}</p>
+          )}
+          <button onClick={handleChangePassword}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold text-white bg-surface2 border border-border">
+            Cambiar contraseña
+          </button>
+        </div>
       </div>
 
       {/* Logout */}

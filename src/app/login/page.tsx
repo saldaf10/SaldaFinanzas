@@ -21,7 +21,8 @@ export default function Login() {
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (username.trim() === USER && password === PASS) {
+    const storedPass = localStorage.getItem('finance_password') || PASS;
+    if (username.trim() === USER && password === storedPass) {
       setLoading(true);
       localStorage.setItem('finance_auth', '1');
       router.replace('/');
