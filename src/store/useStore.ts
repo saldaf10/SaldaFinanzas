@@ -1,7 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Transaction, Budget, UserProfile, Subscription, Receivable, Account } from '../types';
+import { Transaction, Budget, UserProfile, Subscription, Receivable, Account, CustomCategory } from '../types';
 
 interface Store {
   transactions: Transaction[];
@@ -27,6 +27,9 @@ interface Store {
   addAccount: (a: Omit<Account, 'id'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
+  customCategories: CustomCategory[];
+  addCustomCategory: (c: Omit<CustomCategory, 'id'> & { id?: string }) => void;
+  deleteCustomCategory: (id: string) => void;
 }
 
 
@@ -48,6 +51,7 @@ export const useStore = create<Store>()(
       subscriptions: [],
       receivables: [],
       accounts: [],
+      customCategories: [],
 
       addTransaction: (t) => {
         const id = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -132,6 +136,12 @@ export const useStore = create<Store>()(
         set((s) => ({ accounts: s.accounts.map((a) => a.id === id ? { ...a, ...updates } : a) })),
       deleteAccount: (id) =>
         set((s) => ({ accounts: s.accounts.filter((a) => a.id !== id) })),
+      addCustomCategory: (c) => {
+        const id = c.id ?? `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set((s) => ({ customCategories: [...s.customCategories, { ...c, id }] }));
+      },
+      deleteCustomCategory: (id) =>
+        set((s) => ({ customCategories: s.customCategories.filter((c) => c.id !== id) })),
     }),
     {
       name: 'finance-v3',
