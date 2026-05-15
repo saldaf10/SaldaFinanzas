@@ -45,9 +45,9 @@ const safeStorage = typeof window !== 'undefined' ? localStorage : {
 // User-specific key so saldaf and prueba1 have completely separate data.
 // Evaluated once at module init — login uses window.location.replace to
 // force a full reload so this is always read fresh after switching users.
-const STORE_KEY = typeof window !== 'undefined' && localStorage.getItem('finance_user') === 'prueba1'
-  ? 'finance-demo'
-  : 'finance-v3';
+const _user = typeof window !== 'undefined' ? (localStorage.getItem('finance_user') || 'saldaf') : 'saldaf';
+// saldaf keeps 'finance-v3' to preserve existing data; everyone else gets 'finance-{username}'
+const STORE_KEY = _user === 'saldaf' ? 'finance-v3' : `finance-${_user}`;
 
 export const useStore = create<Store>()(
   persist(
