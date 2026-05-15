@@ -1,11 +1,13 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Layout from '../../components/Layout';
 import { useStore } from '../../store/useStore';
 import { formatCOPFull } from '../../utils/format';
 
 export default function Settings() {
   const { profile, updateProfile, transactions, clearAllData } = useStore();
+  const router = useRouter();
   const [name, setName] = useState(profile.name);
   const [income, setIncome] = useState(profile.monthlyIncomeGoal.toString());
   const [apiKey, setApiKey] = useState(profile.openAiKey || '');
@@ -149,6 +151,16 @@ export default function Settings() {
           <li>4. Toca <strong className="text-white">Agregar</strong></li>
           <li>5. ¡Ya aparece en tu pantalla de inicio! 🎉</li>
         </ol>
+      </div>
+
+      {/* Logout */}
+      <div className="px-4 mb-4">
+        <button
+          onClick={() => { localStorage.removeItem('finance_auth'); router.replace('/login'); }}
+          className="w-full py-3.5 rounded-2xl text-sm font-bold text-secondary border border-border bg-surface2"
+        >
+          Cerrar sesión
+        </button>
       </div>
 
       {/* Danger zone */}

@@ -1,20 +1,27 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import AddModal from './AddModal';
 
 const TABS = [
   { href: '/', icon: '⌂', label: 'Inicio' },
   { href: '/transactions', icon: '≡', label: 'Movimientos' },
   { href: null, icon: '+', label: '' }, // FAB placeholder
+  { href: '/subscriptions', icon: '⟳', label: 'Recurrentes' },
   { href: '/budget', icon: '◑', label: 'Presupuesto' },
-  { href: '/insights', icon: '✦', label: 'Análisis' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('finance_auth') !== '1') {
+      router.replace('/login');
+    }
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen min-h-dvh bg-bg">

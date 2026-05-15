@@ -61,3 +61,27 @@ export interface ParsedTransaction {
   description: string;
   category: string;
 }
+
+export type PaymentSource = 'nu' | 'hapi' | 'bancolombia';
+
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  dayOfMonth: number;
+  paymentSource: PaymentSource;
+  category: string;
+  active: boolean;
+  note?: string;
+}
+
+export interface Receivable {
+  id: string;
+  personName: string;
+  description: string;
+  amount: number;
+  dueDate?: string;
+  createdDate: string;
+  paid: boolean;
+  paidDate?: string;
+}
