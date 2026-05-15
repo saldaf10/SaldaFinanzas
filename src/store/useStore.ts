@@ -134,7 +134,7 @@ export const useStore = create<Store>()(
         set((s) => ({ accounts: s.accounts.filter((a) => a.id !== id) })),
     }),
     {
-      name: 'finance-v2',
+      name: 'finance-v3',
       storage: createJSONStorage(() => safeStorage),
     }
   )

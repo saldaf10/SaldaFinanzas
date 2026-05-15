@@ -1,9 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Layout from '../../components/Layout';
 import { useStore } from '../../store/useStore';
 import { formatCOPFull } from '../../utils/format';
+import { getMonthlyStats, getCategoryBreakdown, getPersonality, generateInsights, getHealthScore } from '../../utils/calculations';
+import { getMonthKey, getMonthLabel, getPrevMonthKey, formatCOP } from '../../utils/format';
+import HealthScore from '../../components/HealthScore';
+import InsightCard from '../../components/InsightCard';
 
 export default function Settings() {
   const { profile, updateProfile, transactions, clearAllData } = useStore();
@@ -24,6 +28,23 @@ export default function Settings() {
 
   const txCount = transactions.length;
   const expense = transactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  const monthKey   = getMonthKey();
+  const prevKey    = getPrevMonthKey(monthKey);
+  const stats      = useMemo(() => getMonthlyStats(transactions, monthKey), [transactions, monthKey]);
+  const prevStats  = useMemo(() => getMonthlyStats(transactions, prevKey), [transactions, prevKey]);
+  const breakdown  = useMemo(() => getCategoryBreakdown(transactions, 'expense', monthKey), [transactions, monthKey]);
+  const budgets    = useStore().budgets;
+  const health     = useMemo(() => getHealthScore(stats, budgets, transactions), [stats, budgets, transactions]);
+  const personality = useMemo(() => getPersonality(stats, breakdown), [stats, breakdown]);
+  const insights   = useMemo(() => generateInsights(transactions, stats, prevStats, budgets), [transactions, stats, prevStats, budgets]);
+
+  const byDay = [0,1,2,3,4,5,6].map((d) => ({
+    label: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d],
+    amount: transactions.filter((t) => t.type === 'expense' && t.date.startsWith(monthKey) && new Date(t.date).getDay() === d).reduce((s,t) => s + t.amount, 0),
+    weekend: d === 0 || d === 6,
+  }));
+  const maxDay = Math.max(...byDay.map((d) => d.amount), 1);
 
   return (
     <Layout>
@@ -57,6 +78,49 @@ export default function Settings() {
           </div>
         ))}
       </div>
+
+      {/* Financial personality */}
+      {stats.transactionCount > 0 && (
+        <div className="mx-4 mb-3 rounded-2xl border p-4 flex items-center gap-4" style={{ backgroundColor: '#1A0505', borderColor: '#3D0000' }}>
+          <div className="w-12 h-12 rounded-full bg-surface2 flex items-center justify-center text-2xl flex-shrink-0">{personality.emoji}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-primary text-[10px] font-bold mb-0.5">Tu perfil financiero</p>
+            <p className="text-white text-sm font-black">{personality.title}</p>
+            <p className="text-secondary text-xs mt-0.5 leading-relaxed">{personality.description}</p>
+          </div>
+          <HealthScore score={health} size={52} />
+        </div>
+      )}
+
+      {/* Weekend spending chart */}
+      {stats.transactionCount > 0 && (
+        <div className="mx-4 mb-3 card p-4">
+          <p className="text-white text-sm font-bold mb-3">Gasto por día de semana</p>
+          <div className="flex items-end gap-1 h-20">
+            {byDay.map((d) => {
+              const h = Math.max((d.amount / maxDay) * 60, d.amount > 0 ? 4 : 0);
+              return (
+                <div key={d.label} className="flex-1 flex flex-col items-center">
+                  <p className="text-[7px] text-muted mb-1 leading-none">{d.amount > 0 ? formatCOP(d.amount) : ''}</p>
+                  <div className="w-full flex justify-center items-end" style={{ height: 60 }}>
+                    <div className="w-3/4 rounded-sm" style={{ height: h, backgroundColor: d.weekend ? '#DC2626' : '#333' }} />
+                  </div>
+                  <p className={`text-[9px] font-semibold mt-1 ${d.weekend ? 'text-primary' : 'text-secondary'}`}>{d.label}</p>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-muted text-[10px] mt-2">Barras rojas = fin de semana</p>
+        </div>
+      )}
+
+      {/* Insights */}
+      {insights.filter((i) => i.id !== 'default').slice(0, 3).length > 0 && (
+        <div className="px-4 mb-3">
+          <p className="text-white text-sm font-bold mb-2">Insights</p>
+          {insights.filter((i) => i.id !== 'default').slice(0, 3).map((i) => <InsightCard key={i.id} insight={i} />)}
+        </div>
+      )}
 
       {/* Settings form */}
       <div className="px-4 mb-3">

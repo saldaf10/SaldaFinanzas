@@ -5,7 +5,7 @@ export interface Account {
   id: string;
   name: string;
   type: AccountType;
-  balance: number;
+  initialBalance: number;
   color: string;
   emoji: string;
 }
@@ -20,6 +20,7 @@ export interface Transaction {
   note?: string;
   rating?: number;
   tags?: string[];
+  accountId?: string;
 }
 
 export interface Budget {

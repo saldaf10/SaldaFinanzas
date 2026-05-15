@@ -1,4 +1,4 @@
-import { Transaction, Budget, MonthlyStats, CategoryBreakdown, Insight } from '../types';
+import { Transaction, Budget, MonthlyStats, CategoryBreakdown, Insight, Account } from '../types';
 import { getCategoryById } from './categories';
 import { getMonthKey } from './format';
 
@@ -117,6 +117,13 @@ export function getPersonality(stats: MonthlyStats, bd: CategoryBreakdown): { ti
   }
   if (stats.savingsRate < 0) return { title: 'El Impulsivo', description: 'Tus gastos superan tus ingresos. Momento de revisar prioridades.', emoji: '🌊' };
   return { title: 'El Equilibrado', description: 'Mantienes un balance razonable entre gastos y ahorro.', emoji: '⚖️' };
+}
+
+export function computeAccountBalance(account: Account, transactions: Transaction[]): number {
+  const contrib = transactions
+    .filter((t) => t.accountId === account.id)
+    .reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+  return account.initialBalance + contrib;
 }
 
 export function generateNarrative(stats: MonthlyStats, bd: CategoryBreakdown, label: string): string {

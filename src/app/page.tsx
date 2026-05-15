@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { Account, AccountType } from '../types';
 import { formatCOP, formatCOPFull, getBudgetPeriod } from '../utils/format';
 import { getCategoryById } from '../utils/categories';
+import { computeAccountBalance } from '../utils/calculations';
 
 const PALETTE = ['#4ADE80','#60A5FA','#FBBF24','#F472B6','#A78BFA','#FB923C','#38BDF8','#F87171','#34D399','#E879F9'];
 const EMOJIS  = ['🏦','💳','💰','🪙','💵','🏧','💼','🐷','📱','💹'];
@@ -27,8 +28,11 @@ export default function Dashboard() {
   const debts   = accounts.filter((a) => a.type === 'debt');
   const pending = receivables.filter((r) => !r.paid);
 
-  const totalBanks       = banks.reduce((s, a) => s + a.balance, 0);
-  const totalDebts       = debts.reduce((s, a) => s + a.balance, 0);
+  const bankBalances = useMemo(() => Object.fromEntries(banks.map((a) => [a.id, computeAccountBalance(a, transactions)])), [banks, transactions]);
+  const debtBalances = useMemo(() => Object.fromEntries(debts.map((a) => [a.id, computeAccountBalance(a, transactions)])), [debts, transactions]);
+
+  const totalBanks       = Object.values(bankBalances).reduce((s, b) => s + b, 0);
+  const totalDebts       = Object.values(debtBalances).reduce((s, b) => s + Math.abs(b), 0); // debts stored negative
   const totalReceivables = pending.reduce((s, r) => s + r.amount, 0);
   const netCapital       = totalBanks - totalDebts;
 
@@ -52,14 +56,26 @@ export default function Dashboard() {
     setModal({ open: true, type });
   }
   function openEdit(a: Account) {
-    setForm({ name: a.name, balance: a.balance.toString(), color: a.color, emoji: a.emoji });
+    const computed = computeAccountBalance(a, transactions);
+    const displayBal = a.type === 'debt' ? Math.abs(computed).toString() : computed.toString();
+    setForm({ name: a.name, balance: displayBal, color: a.color, emoji: a.emoji });
     setModal({ open: true, type: a.type, editId: a.id });
   }
   function handleSave() {
-    const bal = parseFloat(form.balance.replace(/\./g, '').replace(',', '.'));
-    if (!form.name.trim() || isNaN(bal)) return;
-    if (modal.editId) updateAccount(modal.editId, { name: form.name.trim(), balance: bal, color: form.color, emoji: form.emoji });
-    else addAccount({ name: form.name.trim(), type: modal.type, balance: bal, color: form.color, emoji: form.emoji });
+    const raw = parseFloat(form.balance.replace(/\./g, '').replace(',', '.'));
+    if (!form.name.trim() || isNaN(raw)) return;
+    // For debts: store negative initialBalance; for banks: positive
+    const initBal = modal.type === 'debt' ? -raw : raw;
+    if (modal.editId) {
+      // When editing, adjust initialBalance so that the new computed balance equals what the user entered
+      const txContrib = transactions
+        .filter((t) => t.accountId === modal.editId)
+        .reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+      const newInitial = modal.type === 'debt' ? (-raw - txContrib) : (raw - txContrib);
+      updateAccount(modal.editId, { name: form.name.trim(), initialBalance: newInitial, color: form.color, emoji: form.emoji });
+    } else {
+      addAccount({ name: form.name.trim(), type: modal.type, initialBalance: initBal, color: form.color, emoji: form.emoji });
+    }
     setModal(CLOSED);
   }
 
@@ -69,6 +85,15 @@ export default function Dashboard() {
       <div className="px-4 pt-4 pb-2">
         <p className="text-secondary text-sm">{greeting}, <span className="text-white font-bold">{profile.name}</span> 👋</p>
       </div>
+
+      {/* Onboarding banner */}
+      {accounts.length === 0 && (
+        <div className="mx-4 mb-4 rounded-2xl border border-primary/30 p-5" style={{ backgroundColor: '#1A0505' }}>
+          <p className="text-primary text-xs font-bold mb-1">Para empezar</p>
+          <p className="text-white font-bold text-base mb-1">Registra tu capital actual</p>
+          <p className="text-secondary text-xs leading-relaxed">Agrega las cuentas donde tienes tu plata (Nu, Bancolombia, efectivo…) y lo que debes. Así cada movimiento queda coordinado automáticamente.</p>
+        </div>
+      )}
 
       {/* ── Capital Neto Hero ── */}
       <div className="mx-4 mb-4 card p-5">
@@ -104,7 +129,9 @@ export default function Dashboard() {
           </button>
         ) : (
           <>
-            {banks.map((a) => <AccountRow key={a.id} account={a} onEdit={() => openEdit(a)} />)}
+            {banks.map((a) => (
+              <AccountRow key={a.id} account={a} balance={bankBalances[a.id]} onEdit={() => openEdit(a)} />
+            ))}
             <div className="flex justify-between px-1 mt-1.5">
               <span className="text-[10px] text-muted">Total activo</span>
               <span className="text-[10px] text-success font-bold">{formatCOPFull(totalBanks)}</span>
@@ -123,7 +150,9 @@ export default function Dashboard() {
           </button>
         ) : (
           <>
-            {debts.map((a) => <AccountRow key={a.id} account={a} onEdit={() => openEdit(a)} negative />)}
+            {debts.map((a) => (
+              <AccountRow key={a.id} account={a} balance={debtBalances[a.id]} onEdit={() => openEdit(a)} negative />
+            ))}
             <div className="flex justify-between px-1 mt-1.5">
               <span className="text-[10px] text-muted">Total deudas</span>
               <span className="text-[10px] text-primary font-bold">-{formatCOPFull(totalDebts)}</span>
@@ -170,7 +199,6 @@ export default function Dashboard() {
               <p className="text-white text-xs font-bold">{formatCOPFull(totalBanks)}</p>
             </div>
 
-            {/* Stacked bar */}
             {totalBanks > 0 && (
               <div className="h-2.5 rounded-full overflow-hidden flex mb-4 gap-px" style={{ backgroundColor: '#111' }}>
                 {periodBudgets.map((b) => {
@@ -178,13 +206,10 @@ export default function Dashboard() {
                   const w = Math.min((b.amount / totalBanks) * 100, 100);
                   return w > 0 ? <div key={b.categoryId} style={{ width: `${w}%`, backgroundColor: cat?.color || '#666' }} /> : null;
                 })}
-                {leftover > 0 && (
-                  <div style={{ flex: 1, backgroundColor: '#2A2A2A' }} />
-                )}
+                {leftover > 0 && <div style={{ flex: 1, backgroundColor: '#2A2A2A' }} />}
               </div>
             )}
 
-            {/* Category bars */}
             {periodBudgets.map((b) => {
               const cat = getCategoryById(b.categoryId);
               const spent = catSpent[b.categoryId] || 0;
@@ -205,7 +230,6 @@ export default function Dashboard() {
               );
             })}
 
-            {/* Leftover */}
             <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
               <p className="text-secondary text-xs">Proyectado libre</p>
               <p className={`text-base font-black ${leftover < 0 ? 'text-primary' : 'text-success'}`}>
@@ -230,7 +254,6 @@ export default function Dashboard() {
                 <button onClick={() => setModal(CLOSED)} className="w-8 h-8 rounded-full bg-surface2 flex items-center justify-center text-secondary text-sm">✕</button>
               </div>
 
-              {/* Emoji picker */}
               <div className="mb-4">
                 <label className="text-xs font-semibold text-secondary mb-2 block">Ícono</label>
                 <div className="flex gap-2 flex-wrap">
@@ -244,7 +267,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Color picker */}
               <div className="mb-4">
                 <label className="text-xs font-semibold text-secondary mb-2 block">Color</label>
                 <div className="flex gap-2 flex-wrap">
@@ -256,7 +278,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Name */}
               <div className="mb-3">
                 <label className="text-xs font-semibold text-secondary mb-1.5 block">Nombre</label>
                 <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
@@ -264,10 +285,9 @@ export default function Dashboard() {
                   value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               </div>
 
-              {/* Balance */}
               <div className="mb-5">
                 <label className="text-xs font-semibold text-secondary mb-1.5 block">
-                  {modal.type === 'bank' ? 'Saldo actual (COP)' : 'Monto que debes (COP)'}
+                  {modal.type === 'bank' ? 'Saldo actual (COP)' : '¿Cuánto debes? (COP)'}
                 </label>
                 <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-2xl font-black placeholder-muted"
                   placeholder="0" inputMode="numeric"
@@ -282,7 +302,7 @@ export default function Dashboard() {
                   </button>
                 )}
                 <button onClick={handleSave} className="flex-[2] btn-primary py-3.5 text-base">
-                  {modal.editId ? 'Guardar cambios' : modal.type === 'bank' ? 'Agregar cuenta' : 'Agregar deuda'}
+                  {modal.editId ? 'Guardar' : modal.type === 'bank' ? 'Agregar cuenta' : 'Agregar deuda'}
                 </button>
               </div>
             </div>
@@ -307,15 +327,17 @@ function SectionHead({ title, onAdd, accent }: { title: string; onAdd?: () => vo
   );
 }
 
-function AccountRow({ account, onEdit, negative }: { account: Account; onEdit: () => void; negative?: boolean }) {
+function AccountRow({ account, balance, onEdit, negative }: { account: Account; balance: number; onEdit: () => void; negative?: boolean }) {
+  const display = negative ? Math.abs(balance) : balance;
+  const color   = negative ? '#F87171' : account.color;
   return (
     <button onClick={onEdit} className="w-full card p-3 mb-2 flex items-center gap-3 text-left active:scale-[0.99] transition-transform">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: account.color + '22' }}>
         {account.emoji}
       </div>
       <p className="flex-1 text-white text-sm font-semibold truncate">{account.name}</p>
-      <p className="font-bold text-sm" style={{ color: negative ? '#F87171' : account.color }}>
-        {negative ? '-' : ''}{formatCOP(account.balance)}
+      <p className="font-bold text-sm" style={{ color }}>
+        {negative ? '-' : ''}{formatCOP(display)}
       </p>
       <span className="text-muted text-xs">›</span>
     </button>

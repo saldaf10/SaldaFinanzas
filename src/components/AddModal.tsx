@@ -10,7 +10,7 @@ const QUICK = [10000, 20000, 50000, 100000, 200000, 500000];
 interface Props { open: boolean; onClose: () => void; }
 
 export default function AddModal({ open, onClose }: Props) {
-  const { addTransaction, subscriptions } = useStore();
+  const { addTransaction, subscriptions, accounts } = useStore();
   const activeSubs = subscriptions.filter((s) => s.active);
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
@@ -20,13 +20,14 @@ export default function AddModal({ open, onClose }: Props) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [rating, setRating] = useState<number | undefined>();
   const [error, setError] = useState('');
+  const [accountId, setAccountId] = useState<string>('');
 
   const categories = type === 'expense' ? getExpenseCategories() : getIncomeCategories();
   const selCat = getCategoryById(category);
 
   function reset() {
     setType('expense'); setAmount(''); setDesc(''); setCategory('other_expense');
-    setNote(''); setDate(new Date().toISOString().slice(0, 10)); setRating(undefined); setError('');
+    setNote(''); setDate(new Date().toISOString().slice(0, 10)); setRating(undefined); setError(''); setAccountId('');
   }
 
   function handleClose() { reset(); onClose(); }
@@ -45,6 +46,7 @@ export default function AddModal({ open, onClose }: Props) {
       category, date: date + 'T12:00:00.000Z',
       note: note.trim() || undefined,
       rating: type === 'expense' ? rating : undefined,
+      accountId: accountId || undefined,
     });
     handleClose();
   }
@@ -77,6 +79,30 @@ export default function AddModal({ open, onClose }: Props) {
               onClick={() => handleTypeChange('income')}
             >↑ Ingreso</button>
           </div>
+
+          {/* Account selector */}
+          {accounts.length > 0 && (
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-secondary mb-2 block">
+                {type === 'expense' ? '¿De qué cuenta sale?' : '¿A qué cuenta entra?'}
+              </label>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {accounts.map((acc) => (
+                  <button
+                    key={acc.id}
+                    onClick={() => setAccountId(accountId === acc.id ? '' : acc.id)}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all"
+                    style={accountId === acc.id
+                      ? { backgroundColor: acc.color + '33', borderColor: acc.color, color: '#fff' }
+                      : { backgroundColor: '#1a1a1a', borderColor: '#2a2a2a', color: '#888' }}
+                  >
+                    <span>{acc.emoji}</span>
+                    <span>{acc.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Subscription quick picks */}
           {type === 'expense' && activeSubs.length > 0 && (
