@@ -35,6 +35,17 @@ export function resolveCategory(id: string, custom: CustomCategory[]): { name: s
   if (predefined) return { name: predefined.name, icon: predefined.icon, color: predefined.color };
   const c = custom.find((x) => x.id === id);
   if (c) return { name: c.name, icon: c.emoji, color: c.color };
+  // Legacy IDs: cust_name_timestamp — extract readable name
+  if (id.startsWith('cust_')) {
+    const withoutPrefix = id.slice(5);
+    const parts = withoutPrefix.split('_');
+    const last = parts[parts.length - 1];
+    const nameParts = /^\d{8,}$/.test(last) ? parts.slice(0, -1) : parts;
+    if (nameParts.length > 0) {
+      const name = nameParts.join(' ');
+      return { name: name.charAt(0).toUpperCase() + name.slice(1), icon: '📦', color: '#808080' };
+    }
+  }
   return { name: id, icon: '📦', color: '#808080' };
 }
 

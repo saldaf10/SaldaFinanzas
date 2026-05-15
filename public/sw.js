@@ -1,4 +1,4 @@
-const CACHE = 'finance-ai-v1';
+const CACHE = 'finance-ai-v9';
 const PRECACHE = ['/', '/transactions', '/budget', '/insights', '/settings'];
 
 self.addEventListener('install', (e) => {
