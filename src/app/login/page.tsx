@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-
-const SALDAF_DEFAULT_PASS = 'Behetria1!';
-const PRUEBA_PASS = '123456';
+// ─── Agregar usuarios en src/utils/auth.ts ───────────────────────────────────
+import { USERS } from '../../utils/auth';
+// ─────────────────────────────────────────────────────────────────────────────
 
 function seedDemoData() {
   if (localStorage.getItem('finance-demo')) return;
@@ -125,24 +125,17 @@ export default function Login() {
     setError('');
     const uname = username.trim().toLowerCase();
 
-    let valid = false;
-    if (uname === 'saldaf') {
-      const pass = localStorage.getItem('finance_password') || SALDAF_DEFAULT_PASS;
-      valid = password === pass;
-    } else if (uname === 'prueba1') {
-      valid = password === PRUEBA_PASS;
-    }
+    const defaultPass = USERS[uname];
+    if (!defaultPass) { setError('Usuario o contraseña incorrectos'); return; }
 
-    if (valid) {
-      setLoading(true);
-      localStorage.setItem('finance_auth', '1');
-      localStorage.setItem('finance_user', uname);
-      if (uname === 'prueba1') seedDemoData();
-      // Full page reload so the store picks the correct per-user storage key
-      window.location.replace('/');
-    } else {
-      setError('Usuario o contraseña incorrectos');
-    }
+    const storedPass = localStorage.getItem(`finance_password_${uname}`) || defaultPass;
+    if (password !== storedPass) { setError('Usuario o contraseña incorrectos'); return; }
+
+    setLoading(true);
+    localStorage.setItem('finance_auth', '1');
+    localStorage.setItem('finance_user', uname);
+    if (uname === 'prueba1') seedDemoData();
+    window.location.replace('/');
   }
 
   return (

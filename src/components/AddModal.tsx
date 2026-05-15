@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { getExpenseCategories, getIncomeCategories, getCategoryById } from '../utils/categories';
+import { getExpenseCategories, getIncomeCategories, getCategoryById, resolveCategory } from '../utils/categories';
 import { TransactionType } from '../types';
 import { formatCOP } from '../utils/format';
 
@@ -10,7 +10,7 @@ const QUICK = [10000, 20000, 50000, 100000, 200000, 500000];
 interface Props { open: boolean; onClose: () => void; }
 
 export default function AddModal({ open, onClose }: Props) {
-  const { addTransaction, subscriptions, accounts } = useStore();
+  const { addTransaction, subscriptions, accounts, customCategories } = useStore();
   const activeSubs = subscriptions.filter((s) => s.active);
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState('');
@@ -22,8 +22,12 @@ export default function AddModal({ open, onClose }: Props) {
   const [error, setError] = useState('');
   const [accountId, setAccountId] = useState<string>('');
 
-  const categories = type === 'expense' ? getExpenseCategories() : getIncomeCategories();
-  const selCat = getCategoryById(category);
+  const predefined = type === 'expense' ? getExpenseCategories() : getIncomeCategories();
+  const customAsOptions = type === 'expense'
+    ? customCategories.map((c) => ({ id: c.id, name: c.name, icon: c.emoji, color: c.color }))
+    : [];
+  const categories = [...predefined, ...customAsOptions];
+  const selCat = resolveCategory(category, customCategories);
 
   function reset() {
     setType('expense'); setAmount(''); setDesc(''); setCategory('other_expense');

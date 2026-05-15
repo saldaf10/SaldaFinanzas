@@ -6,6 +6,7 @@ import { useStore } from '../../store/useStore';
 import { formatCOPFull, getMonthKey, getPrevMonthKey, formatCOP } from '../../utils/format';
 import { getMonthlyStats, getCategoryBreakdown, getPersonality, generateInsights, getHealthScore } from '../../utils/calculations';
 import { resolveCategory } from '../../utils/categories';
+import { USERS } from '../../utils/auth';
 import HealthScore from '../../components/HealthScore';
 import InsightCard from '../../components/InsightCard';
 
@@ -69,11 +70,13 @@ export default function Settings() {
   }));
 
   function handleChangePassword() {
-    const stored = localStorage.getItem('finance_password') || 'Behetria1!';
+    const currentUser = localStorage.getItem('finance_user') || 'saldaf';
+    const passKey = `finance_password_${currentUser}`;
+    const stored = localStorage.getItem(passKey) || USERS[currentUser] || '';
     if (curPass !== stored) { setPassMsg('Contraseña actual incorrecta'); return; }
     if (newPass.length < 6) { setPassMsg('Mínimo 6 caracteres'); return; }
     if (newPass !== confPass) { setPassMsg('Las contraseñas no coinciden'); return; }
-    localStorage.setItem('finance_password', newPass);
+    localStorage.setItem(passKey, newPass);
     setCurPass(''); setNewPass(''); setConfPass('');
     setPassMsg('✓ Contraseña actualizada');
     setTimeout(() => setPassMsg(''), 3000);
