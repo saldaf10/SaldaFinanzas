@@ -1,5 +1,5 @@
 export type TransactionType = 'income' | 'expense';
-export type AccountType = 'bank' | 'debt';
+export type AccountType = 'bank' | 'investment' | 'debt';
 
 export interface Account {
   id: string;
@@ -27,6 +27,13 @@ export interface Budget {
   categoryId: string;
   amount: number;
   month: string;
+}
+
+export interface CustomCategory {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
 }
 
 export interface UserProfile {

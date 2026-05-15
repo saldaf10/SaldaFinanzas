@@ -4,11 +4,11 @@ import Layout from '../components/Layout';
 import { useStore } from '../store/useStore';
 import { Account, AccountType } from '../types';
 import { formatCOP, formatCOPFull, getBudgetPeriod } from '../utils/format';
-import { getCategoryById } from '../utils/categories';
+import { resolveCategory } from '../utils/categories';
 import { computeAccountBalance } from '../utils/calculations';
 
 const PALETTE = ['#4ADE80','#60A5FA','#FBBF24','#F472B6','#A78BFA','#FB923C','#38BDF8','#F87171','#34D399','#E879F9'];
-const EMOJIS  = ['🏦','💳','💰','🪙','💵','🏧','💼','🐷','📱','💹'];
+const EMOJIS  = ['🏦','💳','💰','🪙','💵','🏧','💼','🐷','📱','💹','📊','🏗️'];
 
 interface AccountForm { name: string; balance: string; color: string; emoji: string; }
 interface ModalState  { open: boolean; type: AccountType; editId?: string; }
@@ -16,7 +16,7 @@ const EMPTY_FORM: AccountForm = { name: '', balance: '', color: PALETTE[0], emoj
 const CLOSED: ModalState = { open: false, type: 'bank' };
 
 export default function Dashboard() {
-  const { accounts, addAccount, updateAccount, deleteAccount, receivables, budgets, transactions, profile } = useStore();
+  const { accounts, addAccount, updateAccount, deleteAccount, receivables, budgets, transactions, profile, customCategories } = useStore();
 
   const [modal, setModal] = useState<ModalState>(CLOSED);
   const [form, setForm]   = useState<AccountForm>(EMPTY_FORM);
@@ -24,22 +24,26 @@ export default function Dashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
 
-  const banks   = accounts.filter((a) => a.type === 'bank');
-  const debts   = accounts.filter((a) => a.type === 'debt');
-  const pending = receivables.filter((r) => !r.paid);
+  const liquid      = accounts.filter((a) => a.type === 'bank');
+  const investments = accounts.filter((a) => a.type === 'investment');
+  const debts       = accounts.filter((a) => a.type === 'debt');
+  const pending     = receivables.filter((r) => !r.paid);
 
-  const bankBalances = useMemo(() => Object.fromEntries(banks.map((a) => [a.id, computeAccountBalance(a, transactions)])), [banks, transactions]);
-  const debtBalances = useMemo(() => Object.fromEntries(debts.map((a) => [a.id, computeAccountBalance(a, transactions)])), [debts, transactions]);
+  const liquidBalances = useMemo(() => Object.fromEntries(liquid.map((a) => [a.id, computeAccountBalance(a, transactions)])), [liquid, transactions]);
+  const investBalances = useMemo(() => Object.fromEntries(investments.map((a) => [a.id, computeAccountBalance(a, transactions)])), [investments, transactions]);
+  const debtBalances   = useMemo(() => Object.fromEntries(debts.map((a) => [a.id, computeAccountBalance(a, transactions)])), [debts, transactions]);
 
-  const totalBanks       = Object.values(bankBalances).reduce((s, b) => s + b, 0);
-  const totalDebts       = Object.values(debtBalances).reduce((s, b) => s + Math.abs(b), 0); // debts stored negative
+  const totalLiquid      = Object.values(liquidBalances).reduce((s, b) => s + b, 0);
+  const totalInvest      = Object.values(investBalances).reduce((s, b) => s + b, 0);
+  const totalDebts       = Object.values(debtBalances).reduce((s, b) => s + Math.abs(b), 0);
   const totalReceivables = pending.reduce((s, r) => s + r.amount, 0);
-  const netCapital       = totalBanks - totalDebts;
+  const netCapital       = totalLiquid + totalInvest - totalDebts;
+  const liquidBase       = Math.max(0, totalLiquid - totalDebts);
 
   const period = getBudgetPeriod(profile.budgetResetDay ?? 5);
   const periodBudgets = budgets.filter((b) => b.month === period.monthKey);
   const totalBudgeted = periodBudgets.reduce((s, b) => s + b.amount, 0);
-  const leftover = totalBanks - totalBudgeted;
+  const leftover = liquidBase - totalBudgeted;
 
   const catSpent = useMemo(() => {
     const m: Record<string, number> = {};
@@ -64,10 +68,8 @@ export default function Dashboard() {
   function handleSave() {
     const raw = parseFloat(form.balance.replace(/\./g, '').replace(',', '.'));
     if (!form.name.trim() || isNaN(raw)) return;
-    // For debts: store negative initialBalance; for banks: positive
     const initBal = modal.type === 'debt' ? -raw : raw;
     if (modal.editId) {
-      // When editing, adjust initialBalance so that the new computed balance equals what the user entered
       const txContrib = transactions
         .filter((t) => t.accountId === modal.editId)
         .reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
@@ -79,6 +81,12 @@ export default function Dashboard() {
     setModal(CLOSED);
   }
 
+  const modalTitle = modal.editId
+    ? 'Editar'
+    : modal.type === 'investment' ? 'Nueva inversión'
+    : modal.type === 'bank' ? 'Nueva cuenta'
+    : 'Nueva deuda';
+
   return (
     <Layout>
       <div className="safe-top" />
@@ -86,7 +94,6 @@ export default function Dashboard() {
         <p className="text-secondary text-sm">{greeting}, <span className="text-white font-bold">{profile.name}</span> 👋</p>
       </div>
 
-      {/* Onboarding banner */}
       {accounts.length === 0 && (
         <div className="mx-4 mb-4 rounded-2xl border border-primary/30 p-5" style={{ backgroundColor: '#1A0505' }}>
           <p className="text-primary text-xs font-bold mb-1">Para empezar</p>
@@ -95,17 +102,23 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Capital Neto Hero ── */}
+      {/* Capital Neto */}
       <div className="mx-4 mb-4 card p-5">
         <p className="text-muted text-[10px] font-semibold uppercase tracking-wide mb-1">Capital Neto</p>
         <p className={`text-4xl font-black tracking-tight mb-4 ${netCapital < 0 ? 'text-primary' : 'text-white'}`}>
           {netCapital < 0 ? '-' : ''}{formatCOPFull(Math.abs(netCapital))}
         </p>
-        <div className="flex gap-5">
+        <div className="flex gap-4 flex-wrap">
           <div>
-            <p className="text-[9px] text-muted mb-0.5">Activo</p>
-            <p className="text-success text-sm font-bold">{formatCOP(totalBanks)}</p>
+            <p className="text-[9px] text-muted mb-0.5">Líquido</p>
+            <p className="text-success text-sm font-bold">{formatCOP(totalLiquid)}</p>
           </div>
+          {totalInvest > 0 && (
+            <div>
+              <p className="text-[9px] text-muted mb-0.5">Inversiones</p>
+              <p className="text-blue-400 text-sm font-bold">{formatCOP(totalInvest)}</p>
+            </div>
+          )}
           <div>
             <p className="text-[9px] text-muted mb-0.5">Deudas</p>
             <p className="text-primary text-sm font-bold">-{formatCOP(totalDebts)}</p>
@@ -113,34 +126,55 @@ export default function Dashboard() {
           {totalReceivables > 0 && (
             <div>
               <p className="text-[9px] text-muted mb-0.5">Me deben</p>
-              <p className="text-blue-400 text-sm font-bold">+{formatCOP(totalReceivables)}</p>
+              <p className="text-yellow-400 text-sm font-bold">+{formatCOP(totalReceivables)}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Mi plata ── */}
-      <SectionHead title="Mi plata" onAdd={() => openAdd('bank')} />
+      {/* Líquido */}
+      <SectionHead title="Líquido" onAdd={() => openAdd('bank')} />
       <div className="px-4 mb-4">
-        {banks.length === 0 ? (
+        {liquid.length === 0 ? (
           <button onClick={() => openAdd('bank')} className="w-full card2 border-dashed p-5 flex flex-col items-center gap-1">
             <span className="text-2xl">🏦</span>
             <p className="text-muted text-xs">Agrega tu primera cuenta o efectivo</p>
           </button>
         ) : (
           <>
-            {banks.map((a) => (
-              <AccountRow key={a.id} account={a} balance={bankBalances[a.id]} onEdit={() => openEdit(a)} />
+            {liquid.map((a) => (
+              <AccountRow key={a.id} account={a} balance={liquidBalances[a.id]} onEdit={() => openEdit(a)} />
             ))}
             <div className="flex justify-between px-1 mt-1.5">
-              <span className="text-[10px] text-muted">Total activo</span>
-              <span className="text-[10px] text-success font-bold">{formatCOPFull(totalBanks)}</span>
+              <span className="text-[10px] text-muted">Total líquido</span>
+              <span className="text-[10px] text-success font-bold">{formatCOPFull(totalLiquid)}</span>
             </div>
           </>
         )}
       </div>
 
-      {/* ── Lo que debo ── */}
+      {/* Inversiones */}
+      <SectionHead title="Inversiones" onAdd={() => openAdd('investment')} accent="#60A5FA" />
+      <div className="px-4 mb-4">
+        {investments.length === 0 ? (
+          <button onClick={() => openAdd('investment')} className="w-full card2 border-dashed p-5 flex flex-col items-center gap-1 opacity-50">
+            <span className="text-2xl">📊</span>
+            <p className="text-muted text-xs">Acciones, CDTs, cripto, fondos…</p>
+          </button>
+        ) : (
+          <>
+            {investments.map((a) => (
+              <AccountRow key={a.id} account={a} balance={investBalances[a.id]} onEdit={() => openEdit(a)} accent="#60A5FA" />
+            ))}
+            <div className="flex justify-between px-1 mt-1.5">
+              <span className="text-[10px] text-muted">Total inversiones</span>
+              <span className="text-[10px] font-bold" style={{ color: '#60A5FA' }}>{formatCOPFull(totalInvest)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Lo que debo */}
       <SectionHead title="Lo que debo" onAdd={() => openAdd('debt')} accent="#F87171" />
       <div className="px-4 mb-4">
         {debts.length === 0 ? (
@@ -161,26 +195,26 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Me deben ── */}
+      {/* Me deben */}
       {pending.length > 0 && (
         <>
-          <SectionHead title="Me deben" accent="#60A5FA" />
+          <SectionHead title="Me deben" accent="#FBBF24" />
           <div className="px-4 mb-4">
             {pending.map((r) => (
               <div key={r.id} className="card p-3 mb-2 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#60A5FA22' }}>💸</div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: '#FBBF2422' }}>💸</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-semibold truncate">{r.personName}</p>
                   <p className="text-muted text-xs truncate">{r.description}</p>
                 </div>
-                <p className="text-blue-400 text-sm font-bold">+{formatCOP(r.amount)}</p>
+                <p className="text-yellow-400 text-sm font-bold">+{formatCOP(r.amount)}</p>
               </div>
             ))}
           </div>
         </>
       )}
 
-      {/* ── Presupuesto del período ── */}
+      {/* Presupuesto del período */}
       <div className="mx-4 mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <p className="text-white text-sm font-bold">Presupuesto</p>
@@ -194,44 +228,45 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="card p-4">
-            <div className="flex justify-between items-baseline mb-3">
-              <p className="text-muted text-[10px]">Capital base</p>
-              <p className="text-white text-xs font-bold">{formatCOPFull(totalBanks)}</p>
+            <div className="flex justify-between items-baseline mb-0.5">
+              <p className="text-muted text-[10px]">Base (líquido − deudas)</p>
+              <p className="text-white text-xs font-bold">{formatCOPFull(liquidBase)}</p>
             </div>
+            <p className="text-muted text-[9px] mb-3">Las inversiones no forman parte del presupuesto</p>
 
-            {totalBanks > 0 && (
+            {liquidBase > 0 && (
               <div className="h-2.5 rounded-full overflow-hidden flex mb-4 gap-px" style={{ backgroundColor: '#111' }}>
                 {periodBudgets.map((b) => {
-                  const cat = getCategoryById(b.categoryId);
-                  const w = Math.min((b.amount / totalBanks) * 100, 100);
-                  return w > 0 ? <div key={b.categoryId} style={{ width: `${w}%`, backgroundColor: cat?.color || '#666' }} /> : null;
+                  const info = resolveCategory(b.categoryId, customCategories);
+                  const w = Math.min((b.amount / liquidBase) * 100, 100);
+                  return w > 0 ? <div key={b.categoryId} style={{ width: `${w}%`, backgroundColor: info.color }} /> : null;
                 })}
                 {leftover > 0 && <div style={{ flex: 1, backgroundColor: '#2A2A2A' }} />}
               </div>
             )}
 
             {periodBudgets.map((b) => {
-              const cat = getCategoryById(b.categoryId);
+              const info = resolveCategory(b.categoryId, customCategories);
               const spent = catSpent[b.categoryId] || 0;
               const pct = b.amount > 0 ? Math.min((spent / b.amount) * 100, 100) : 0;
               const over = spent > b.amount;
               return (
                 <div key={b.categoryId} className="mb-3 last:mb-0">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-secondary">{cat?.icon} {cat?.name}</span>
+                    <span className="text-xs text-secondary">{info.icon} {info.name}</span>
                     <span className={`text-[10px] font-semibold ${over ? 'text-primary' : 'text-muted'}`}>
                       {formatCOP(spent)} / {formatCOP(b.amount)}
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#1a1a1a' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: over ? '#DC2626' : (cat?.color || '#666') }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: over ? '#DC2626' : info.color }} />
                   </div>
                 </div>
               );
             })}
 
             <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
-              <p className="text-secondary text-xs">Proyectado libre</p>
+              <p className="text-secondary text-xs">Disponible libre</p>
               <p className={`text-base font-black ${leftover < 0 ? 'text-primary' : 'text-success'}`}>
                 {leftover < 0 ? '-' : '+'}{formatCOPFull(Math.abs(leftover))}
               </p>
@@ -240,7 +275,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Account Modal ── */}
+      {/* Account Modal */}
       {modal.open && (
         <div className="fixed inset-0 z-50 flex items-end">
           <div className="absolute inset-0 bg-black/70" onClick={() => setModal(CLOSED)} />
@@ -248,9 +283,7 @@ export default function Dashboard() {
             <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-border" /></div>
             <div className="px-4 pb-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-xl font-bold text-white">
-                  {modal.editId ? 'Editar' : modal.type === 'bank' ? 'Nueva cuenta' : 'Nueva deuda'}
-                </h2>
+                <h2 className="text-xl font-bold text-white">{modalTitle}</h2>
                 <button onClick={() => setModal(CLOSED)} className="w-8 h-8 rounded-full bg-surface2 flex items-center justify-center text-secondary text-sm">✕</button>
               </div>
 
@@ -281,13 +314,17 @@ export default function Dashboard() {
               <div className="mb-3">
                 <label className="text-xs font-semibold text-secondary mb-1.5 block">Nombre</label>
                 <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-sm placeholder-muted"
-                  placeholder={modal.type === 'bank' ? 'Ej: Nu, Bancolombia, Efectivo...' : 'Ej: Tarjeta Nu, Préstamo...'}
+                  placeholder={
+                    modal.type === 'investment' ? 'Ej: Nubank Invest, BTG, Cripto…' :
+                    modal.type === 'bank' ? 'Ej: Nu, Bancolombia, Efectivo…' :
+                    'Ej: Tarjeta Nu, Préstamo…'
+                  }
                   value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               </div>
 
               <div className="mb-5">
                 <label className="text-xs font-semibold text-secondary mb-1.5 block">
-                  {modal.type === 'bank' ? 'Saldo actual (COP)' : '¿Cuánto debes? (COP)'}
+                  {modal.type === 'debt' ? '¿Cuánto debes? (COP)' : 'Saldo actual (COP)'}
                 </label>
                 <input className="w-full bg-surface2 border border-border rounded-xl px-3 py-3 text-white text-2xl font-black placeholder-muted"
                   placeholder="0" inputMode="numeric"
@@ -302,7 +339,10 @@ export default function Dashboard() {
                   </button>
                 )}
                 <button onClick={handleSave} className="flex-[2] btn-primary py-3.5 text-base">
-                  {modal.editId ? 'Guardar' : modal.type === 'bank' ? 'Agregar cuenta' : 'Agregar deuda'}
+                  {modal.editId ? 'Guardar' :
+                    modal.type === 'investment' ? 'Agregar inversión' :
+                    modal.type === 'bank' ? 'Agregar cuenta' :
+                    'Agregar deuda'}
                 </button>
               </div>
             </div>
@@ -327,9 +367,9 @@ function SectionHead({ title, onAdd, accent }: { title: string; onAdd?: () => vo
   );
 }
 
-function AccountRow({ account, balance, onEdit, negative }: { account: Account; balance: number; onEdit: () => void; negative?: boolean }) {
+function AccountRow({ account, balance, onEdit, negative, accent }: { account: Account; balance: number; onEdit: () => void; negative?: boolean; accent?: string }) {
   const display = negative ? Math.abs(balance) : balance;
-  const color   = negative ? '#F87171' : account.color;
+  const color   = negative ? '#F87171' : accent || account.color;
   return (
     <button onClick={onEdit} className="w-full card p-3 mb-2 flex items-center gap-3 text-left active:scale-[0.99] transition-transform">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ backgroundColor: account.color + '22' }}>
