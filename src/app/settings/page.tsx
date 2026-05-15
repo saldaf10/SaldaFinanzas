@@ -357,7 +357,7 @@ export default function Settings() {
 
       {/* Logout */}
       <div className="px-4 mb-4">
-        <button onClick={() => { localStorage.removeItem('finance_auth'); router.replace('/login'); }}
+        <button onClick={() => { localStorage.removeItem('finance_auth'); localStorage.removeItem('finance_user'); window.location.replace('/login'); }}
           className="w-full py-3.5 rounded-2xl text-sm font-bold text-secondary border border-border bg-surface2">
           Cerrar sesión
         </button>

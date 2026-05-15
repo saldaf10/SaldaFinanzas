@@ -42,6 +42,13 @@ const safeStorage = typeof window !== 'undefined' ? localStorage : {
   key: () => null,
 };
 
+// User-specific key so saldaf and prueba1 have completely separate data.
+// Evaluated once at module init — login uses window.location.replace to
+// force a full reload so this is always read fresh after switching users.
+const STORE_KEY = typeof window !== 'undefined' && localStorage.getItem('finance_user') === 'prueba1'
+  ? 'finance-demo'
+  : 'finance-v3';
+
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
@@ -144,7 +151,7 @@ export const useStore = create<Store>()(
         set((s) => ({ customCategories: s.customCategories.filter((c) => c.id !== id) })),
     }),
     {
-      name: 'finance-v3',
+      name: STORE_KEY,
       storage: createJSONStorage(() => safeStorage),
     }
   )
