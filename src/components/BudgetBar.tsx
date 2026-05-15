@@ -2,22 +2,34 @@
 import { getCategoryById } from '../utils/categories';
 import { formatCOP } from '../utils/format';
 
-interface Props { categoryId: string; budget: number; spent: number; onDelete?: () => void; }
+interface Props {
+  categoryId: string;
+  budget: number;
+  spent: number;
+  name?: string;
+  icon?: string;
+  color?: string;
+  onDelete?: () => void;
+}
 
-export default function BudgetBar({ categoryId, budget, spent, onDelete }: Props) {
+export default function BudgetBar({ categoryId, budget, spent, name, icon, color, onDelete }: Props) {
   const cat = getCategoryById(categoryId);
+  const displayName  = name  ?? cat?.name  ?? categoryId;
+  const displayIcon  = icon  ?? cat?.icon  ?? '📦';
+  const displayColor = color ?? cat?.color ?? '#808080';
+
   const ratio = budget > 0 ? Math.min(spent / budget, 1) : 0;
-  const pct = Math.round(ratio * 100);
-  const over = spent > budget;
-  const barColor = over ? '#DC2626' : pct > 80 ? '#F59E0B' : cat?.color || '#DC2626';
+  const pct   = Math.round(ratio * 100);
+  const over  = spent > budget;
+  const barColor = over ? '#DC2626' : pct > 80 ? '#F59E0B' : displayColor;
   const remaining = budget - spent;
 
   return (
     <div className="card p-4 mb-2.5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{cat?.icon || '📦'}</span>
-          <span className="text-white text-sm font-semibold">{cat?.name || categoryId}</span>
+          <span className="text-xl">{displayIcon}</span>
+          <span className="text-white text-sm font-semibold">{displayName}</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
