@@ -250,11 +250,14 @@ export default function Transactions() {
                       {data.income > 0  && <div className="w-1 h-1 rounded-full bg-success" />}
                     </div>
                   )}
-                  {data && !isSelected && (
-                    <span className="text-[8px] text-muted leading-none mt-0.5">
-                      {formatCOP(data.expense || data.income)}
-                    </span>
-                  )}
+                  {data && !isSelected && (() => {
+                    const net = data.income - data.expense;
+                    return (
+                      <span className={`text-[8px] leading-none mt-0.5 font-semibold ${net >= 0 ? 'text-success' : 'text-primary'}`}>
+                        {net >= 0 ? '+' : '-'}{formatCOP(Math.abs(net))}
+                      </span>
+                    );
+                  })()}
                 </button>
               );
             })}

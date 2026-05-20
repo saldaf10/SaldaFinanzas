@@ -54,7 +54,7 @@ export const useStore = create<Store>()(
     (set, get) => ({
       transactions: [],
       budgets: [],
-      profile: { name: 'saldaf', monthlyIncomeGoal: 0, currency: 'COP', budgetResetDay: 5 },
+      profile: { name: _user, monthlyIncomeGoal: 0, currency: 'COP', budgetResetDay: 5 },
       subscriptions: [],
       receivables: [],
       accounts: [],
